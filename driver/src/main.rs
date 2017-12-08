@@ -2,6 +2,7 @@
 
 use std::env;
 use std::io;
+use std::io::Write;
 //use std::time::Duration;
 
 //use std::io::prelude::*;
@@ -16,6 +17,7 @@ fn main() {
 
 	loop {
 		print!("> ");
+		io::stdout().flush().unwrap();
 
 		let mut input = String::new();
 
@@ -31,6 +33,6 @@ fn main() {
 }
 
 fn send(msg: &str) -> io::Result<()> {
-	println!("{}", msg);
+	println!("{}", msg.trim());
 	Ok(())
 }
