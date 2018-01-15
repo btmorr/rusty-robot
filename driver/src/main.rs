@@ -1,16 +1,23 @@
-//extern crate serial;
-extern crate iron;
 extern crate clap;
+extern crate iron;
+extern crate router;
 
 //use std::env;
+//use std::time::Duration;
 use std::io;
-use std::io::Write;
+use std::io::{Read, Write};
 
 use clap::{Arg, App};
 
 use iron::prelude::*;
 use iron::status;
-//use std::time::Duration;
+use router::Router;
+
+#[derive(Debug)]
+struct ServerURI<'a> {
+    hostname: &'a str,
+    port: &'a str,
+}
 
 fn main() {
 	let matches = App::new("app")
@@ -40,11 +47,11 @@ fn main() {
 
 	match matches.occurrences_of("cli") {
 		0 => {
-			let hostname = matches.value_of("hostname")
-				.unwrap_or("localhost");
-			let port = matches.value_of("port")
-				.unwrap_or("80");
-			server_main(hostname, port);			
+			let uri = ServerURI { 
+				hostname: matches.value_of("hostname").unwrap_or("localhost"),
+				port: matches.value_of("port").unwrap_or("80")
+			};
+			server_main(uri);
 		},
 		_ => {
 			println!("Starting REPL");
@@ -53,12 +60,29 @@ fn main() {
 	}
 }
 
-fn server_main(hostname: &str, port: &str) {
-	let server_uri = format!("{}:{}", hostname, port);
-	println!("Starting server on {}", server_uri);
-	Iron::new(|_: &mut Request| {
-		Ok(Response::with((status::Ok, "Hello World!")))
-	}).http(server_uri).unwrap();
+fn server_main(uri: ServerURI) {
+	let uri = format!("{}:{}", uri.hostname, uri.port);
+	println!("Starting server on {}", uri);
+
+	let mut router = Router::new();
+
+	router.get(
+		"/ping", |_: &mut Request| { 
+			Ok(Response::with((status::Ok, "pong")))
+		}, 
+		"ping");
+
+	router.get(
+		"/hello/:name", 
+		hello_world, 
+		"hello");
+
+	router.post(
+		"/echo",
+		echo,
+		"echo");
+
+	Iron::new(router).http(uri).unwrap();
 }
 
 fn cli_main() {
@@ -82,4 +106,23 @@ fn cli_main() {
 fn send(msg: &str) -> io::Result<()> {
 	println!("{}", msg.trim());
 	Ok(())
+}
+
+fn hello_world(req: &mut Request) -> IronResult<Response> {
+	println!("Request: {:?}", req);
+
+	let name = req.extensions.get::<Router>()
+		.unwrap().find("name").unwrap_or("World");
+
+	// let mut buffer = String::new();
+	// println!("Body: {:?}", req.body.read_to_string(&mut buffer));
+
+	Ok(Response::with((status::Ok, format!("Hello, {}!", name))))
+}
+
+fn echo(req: &mut Request) -> IronResult<Response> {
+	let mut payload = String::new();
+	req.body.read_to_string(&mut payload).unwrap();
+	println!("Received: {}", payload);
+	Ok(Response::with((status::Ok, payload)))
 }
