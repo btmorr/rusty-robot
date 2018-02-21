@@ -1,4 +1,6 @@
-FROM rust:1.22.1
+# FROM rust:1.22.1
+FROM parity/rust-arm:gitlab-ci
+
 
 COPY ./driver /
 RUN cargo build
